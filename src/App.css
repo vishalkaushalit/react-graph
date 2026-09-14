@@ -4,6 +4,13 @@
 .sidebar-signout{margin-top:16px;width:100%;justify-content:center;color:#b42318;border-color:#f0d8d5}.sidebar-signout:hover{background:#fff1f0}
 
 .page-heading + .stat-grid{margin-top:24px}
+.nav-link{display:flex;gap:10px;align-items:center;font-weight:600;font-size:13px;border-radius:9px;padding:13px 10px;margin-bottom:6px;color:#697187}
+.nav-link svg{flex-shrink:0}
+.nav-link:hover{background:#f5f4fc}
+.nav-link.nav-active{background:#efedfd;color:#6255d7}
+.expense-entry{margin-top:24px}
+.expense-entry form{margin:24px 0}
+.expense-entry .editor-row .primary{margin-top:0;width:auto}
 
 .chart-legend {
   display: flex;
@@ -65,3 +72,26 @@
     background: #20283f80;
   }
 }
+
+.expense-navigation{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0;align-items:center}
+.expense-tab-active{background:#efedfd;color:#6255d7;border-color:#c7c2f3}
+.expense-form{margin-top:24px}
+.expense-form .primary{margin-top:0}
+.expense-form .editor-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+.expense-form .editor-row > button{grid-column:1/-1}
+@media(max-width:600px){.expense-form .editor-row{grid-template-columns:1fr}}
+
+.expense-delete{color:#b42318;border-color:#f0d8d5;justify-self:start}
+.expense-delete:hover{background:#fff1f0}
+td .expense-delete{margin-left:auto}
+.expense-amount-cell{text-align:right;font-weight:600}
+.monthly-salary{margin-top:24px}
+.salary-form{display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin-top:18px}
+.salary-form label{flex:1;max-width:300px;min-width:0}
+.salary-form input{width:100%}
+.salary-form .primary{margin-top:0;width:auto}
+@media(max-width:600px){.salary-form{align-items:stretch;flex-direction:column}.salary-form label{max-width:none}.salary-form .primary{max-width:none}}
+
+.month-select input{background:white;border:1px solid #e1e4ee;padding:10px 12px;border-radius:8px;font-size:12px;color:#4a526a;min-width:165px;color-scheme:light}
+.reporting-date-note{display:block;margin-top:7px;font-size:10px;color:#697187}
+@media(max-width:760px){.month-select input{width:100%}}

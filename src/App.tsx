@@ -15,7 +15,7 @@ function AppRoutes() {
     setLoggedIn(true)
     try { sessionStorage.setItem('balance.demo-session', 'active') } catch { /* Keep the in-memory session. */ }
     const destination = new URLSearchParams(location.search).get('next')
-    navigate(destination === '/finances' ? destination : '/dashboard', { replace: true })
+    navigate(destination && ['/finances', '/finances/add', '/finances/edit'].includes(destination) ? destination : '/dashboard', { replace: true })
   }
   const logout = () => {
     setLoggedIn(false)
@@ -29,6 +29,8 @@ function AppRoutes() {
     <Route path="/signup" element={<SignupPage />} />
     <Route path="/dashboard" element={dashboard} />
     <Route path="/finances" element={dashboard} />
+    <Route path="/finances/add" element={dashboard} />
+    <Route path="/finances/edit" element={dashboard} />
     <Route path="*" element={<main className="dashboard-content"><h1>Page not found</h1><p className="muted">This address does not match a page.</p><Link className="logout" to="/">Go home</Link></main>} />
   </Routes>
 }

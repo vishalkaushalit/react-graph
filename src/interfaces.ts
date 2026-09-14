@@ -9,5 +9,5 @@ export interface SignupFormData {
 export interface MonthlyFinance {
   month: string;
   salary: number;
-  expenses: { name: string; amount: number }[];
+  expenses: { name: string; amount: number; date?: string }[];
 }

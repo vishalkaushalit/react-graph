@@ -9,10 +9,37 @@ import {
   FiCreditCard,
   FiMenu,
   FiX,
+  FiPieChart,
 } from "react-icons/fi";
 import { currency } from "../data/demo";
-import { readFinances } from "../lib/financeStorage";
+import { isExpenseDate, readFinances, storageKey } from "../lib/financeStorage";
 import FinanceChart from "./FinanceChart";
+import ExpenseEditor from "./ExpenseEditor";
+import SalaryEditor from "./SalaryEditor";
+
+const reportingDateKey = "balance.reporting-date.v1";
+
+function readDashboard() {
+  const finances = readFinances();
+  try {
+    const savedDate = localStorage.getItem(reportingDateKey);
+    if (isExpenseDate(savedDate)) {
+      const selectedMonth = new Date(`${savedDate}T12:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const index = finances.findIndex((item) => item.month === selectedMonth);
+      return {
+        finances: index === -1 ? [...finances, { month: selectedMonth, salary: 0, expenses: [] }] : finances,
+        monthIndex: index === -1 ? finances.length : index,
+        reportingDate: savedDate,
+      };
+    }
+  } catch { /* Use the default month if browser storage is unavailable. */ }
+  const initialMonth = new Date(`1 ${finances[finances.length - 1].month}`);
+  return {
+    finances,
+    monthIndex: finances.length - 1,
+    reportingDate: `${initialMonth.getFullYear()}-${String(initialMonth.getMonth() + 1).padStart(2, "0")}-01`,
+  };
+}
 
 export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,9 +82,14 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     };
   }, [sidebarOpen]);
 
-  const [monthlyFinances] = useState(readFinances);
-  const [monthIndex, setMonthIndex] = useState(monthlyFinances.length - 1);
-  const editing = useLocation().pathname === "/finances";
+  const [initialDashboard] = useState(readDashboard);
+  const [monthlyFinances, setMonthlyFinances] = useState(initialDashboard.finances);
+  const [monthIndex, setMonthIndex] = useState(initialDashboard.monthIndex);
+  const [reportingDate, setReportingDate] = useState(initialDashboard.reportingDate);
+  const pathname = useLocation().pathname;
+  const editing = pathname.startsWith("/finances");
+  const expenseMode = pathname === "/finances/add" ? "add" : pathname === "/finances/edit" ? "edit" : "view";
+  const expenseTitle = expenseMode === "add" ? "Add expenses" : expenseMode === "edit" ? "Edit expenses" : "View expenses";
   const month = monthlyFinances[monthIndex];
   const expenses =
     Math.round(
@@ -104,8 +136,11 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           Balance<span className="brand-dot">.</span>
         </Link>
         <span className="nav-label">WORKSPACE</span>
-        <Link className="nav-active" to="/dashboard" onClick={() => setSidebarOpen(false)}>
+        <Link className={`nav-link${!editing ? " nav-active" : ""}`} aria-current={!editing ? "page" : undefined} to="/dashboard" onClick={() => setSidebarOpen(false)}>
           <FiGrid /> Overview
+        </Link>
+        <Link className={`nav-link${editing ? " nav-active" : ""}`} aria-current={editing ? "page" : undefined} to="/finances" onClick={() => setSidebarOpen(false)}>
+          <FiPieChart aria-hidden="true" /> Expense breakdown
         </Link>
         <div className="sidebar-bottom">
           <span className="avatar">D</span>
@@ -137,7 +172,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               <FiMenu aria-hidden="true" />
             </button>
             <span>
-            Personal finance <span className="muted">/ Overview</span>
+            Personal finance <span className="muted">/ {editing ? expenseTitle : "Overview"}</span>
             </span>
           </div>
           <button type="button" onClick={onLogout} className="logout">
@@ -150,27 +185,65 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               <span className="eyebrow">A CLEARER PICTURE</span>
               <h1>
                 {editing
-                  ? "Manage monthly finances"
+                  ? expenseTitle
                   : "Your money, at a glance"}
               </h1>
               <p className="muted">
-                A simple overview of your income, spending, and what’s left.
+                {editing ? "Manage your expense breakdown for the selected reporting month." : "A simple overview of your income, spending, and what’s left."}
               </p>
             </div>
             <label className="month-select">
-              <span>Reporting month</span>
-              <select
-                value={monthIndex}
-                onChange={(event) => setMonthIndex(Number(event.target.value))}
-              >
-                {monthlyFinances.map((item, index) => (
-                  <option key={item.month} value={index}>
-                    {item.month}
-                  </option>
-                ))}
-              </select>
+              <span>Reporting date</span>
+              <input
+                type="date"
+                value={reportingDate}
+                onChange={(event) => {
+                  const selectedDate = event.target.value;
+                  if (!isExpenseDate(selectedDate)) return;
+                  const selectedMonth = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                  const index = monthlyFinances.findIndex((item) => item.month === selectedMonth);
+                  if (index === -1) {
+                    setMonthlyFinances([...monthlyFinances, { month: selectedMonth, salary: 0, expenses: [] }]);
+                    setMonthIndex(monthlyFinances.length);
+                  } else {
+                    setMonthIndex(index);
+                  }
+                  setReportingDate(selectedDate);
+                  try {
+                    localStorage.setItem(reportingDateKey, selectedDate);
+                  } catch { /* Keep the selection for this session if storage is unavailable. */ }
+                }}
+              />
+              <small className="reporting-date-note">Showing {month.month}</small>
             </label>
           </div>
+          <SalaryEditor
+            key={month.month}
+            month={month.month}
+            salary={month.salary}
+            onSave={(salary) => {
+              const updated = monthlyFinances.map((item, index) =>
+                index === monthIndex ? { ...item, salary } : item,
+              );
+              localStorage.setItem(storageKey, JSON.stringify(updated));
+              setMonthlyFinances(updated);
+            }}
+          />
+          {editing && (
+            <ExpenseEditor
+              key={`${reportingDate}-${expenseMode}`}
+              month={month}
+              mode={expenseMode}
+              defaultDate={reportingDate}
+              onSave={(updatedExpenses) => {
+                const updated = monthlyFinances.map((item, index) =>
+                  index === monthIndex ? { ...item, expenses: updatedExpenses } : item,
+                );
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+                setMonthlyFinances(updated);
+              }}
+            />
+          )}
           {!editing && (
             <>
               <section className="stat-grid" aria-label="Financial summary">
@@ -223,11 +296,26 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <span>Income & spending</span>
                   </div>
                   <p className="muted">How your salary adds up this month.</p>
+                  {month.salary === 0 && expenses === 0 ? (
+                    <p className="empty-expenses">
+                      No income or expenses recorded for this month yet.
+                    </p>
+                  ) : (
                   <FinanceChart
                     chartType="ColumnChart"
                     data={overview}
-                    options={{ legend: { position: "none" } }}
+                    options={{
+                      legend: { position: "none" },
+                      vAxis: {
+                        baseline: 0,
+                        viewWindow: {
+                          min: 0,
+                          max: Math.max(month.salary, expenses, balance, 1) * 1.1,
+                        },
+                      },
+                    }}
                   />
+                  )}
                 </article>
                 <article className="panel">
                   <div className="panel-heading">
@@ -248,24 +336,26 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               <section className="panel expense-panel">
                 <div className="panel-heading">
                   <h2>Expense breakdown</h2>
-                  <span>{month.expenses.length} categories</span>
+                  <span>{new Set(month.expenses.map((expense) => expense.name.toLowerCase())).size} categories</span>
                 </div>
                 <div className="table-scroll">
                   <table>
                     <thead>
                       <tr>
                         <th>Category</th>
+                        <th>Date</th>
                         <th>Share of expenses</th>
                         <th>Amount</th>
                       </tr>
                     </thead>
                     <tbody>
                       {month.expenses.map((expense, index) => (
-                        <tr key={expense.name}>
+                        <tr key={`${expense.name}-${index}`}>
                           <td>
                             <span className={`category-dot color-${index}`} />
                             {expense.name}
                           </td>
+                          <td>{expense.date || "Not set"}</td>
                           <td>
                             <div className="share">
                               <div>
@@ -286,7 +376,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                     </tbody>
                     <tfoot>
                       <tr>
-                        <th>Total expenses</th>
+                        <th colSpan={2}>Total expenses</th>
                         <td>{expenses > 0 ? "100%" : "0%"}</td>
                         <td>{currency(expenses)}</td>
                       </tr>
